@@ -1,3 +1,5 @@
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/carbone)](https://artifacthub.io/packages/search?repo=carbone)
+
 This repo contains helm and YAML for deploying Carbone into a Kubernetes environment. Follow the applicable instructions for your edition / deployment methodology below:
 
 - [Deploying with Helm](#deploying-with-helm)

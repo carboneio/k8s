@@ -1,0 +1,33 @@
+# This block is for setting up the ingress for more information can be found here: https://kuberkubnetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  annotations:
+    ## max body size should be more than max template size and max json size
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    ## Timeout configuration
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    kubernetes.io/ingress.class: "nginx"
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: 
+      paths:
+        - path: /
+          pathType: Prefix
+
+replicaCount: 2
+
+applicationConfiguration:
+  authentication: false
+  authenticationPublicKey:
+  licence: <Your license>
+
+persistentStorage:
+  s3:
+    enabled: true
+    templatesBucket: <Bucket name to store templates>
+    rendersBucket: <Bucket name to store renders>
+    endpoint: s3.gra.io.cloud.ovh.net
+    region: gra
+    accessKeyId: <S3 Access key id>
+    accessKeySecret: <S3 Access key secret>

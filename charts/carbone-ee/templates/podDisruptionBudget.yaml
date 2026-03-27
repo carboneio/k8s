@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "carbone-ee.fullname" . }}
+spec:
+  minAvailable: 1          # ou maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "carbone-ee.labels" . | nindent 6 }}

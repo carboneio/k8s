@@ -1,0 +1,144 @@
+# Default values for carbone-ee.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
+image:
+  repository: carbone/carbone-ee
+  # This sets the pull policy for images.
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "5.4.1"
+
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: "carbone-ee-production"
+
+# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: null
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: "carbone-ee-user"
+
+# This is for setting Kubernetes Annotations to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+# This is for setting Kubernetes Labels to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+# Service is set to headless
+
+# This block is for setting up the ingress for more information can be found here: https://kuberkubnetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  annotations:
+    ## To be configured at least with : kubernetes.io/ingress.class
+  hosts:
+    - host: 
+      paths:
+        - path: /
+          pathType: Prefix
+
+  tls: []
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  requests:
+    cpu: 1024m
+    memory: 2048Mi
+    ephemeral-storage: "4Gi"
+  limits:
+    cpu: 2048m
+    memory: 4096Mi
+    ephemeral-storage: "10Gi"
+
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+livenessProbe:
+  httpGet:
+    path: /status
+    port: 4000
+  initialDelaySeconds: 60
+  periodSeconds: 5
+
+replicaCount: 4
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 70
+  #targetMemoryUtilizationPercentage: 80
+
+applicationConfiguration:
+  templateManagement: true
+  forceMetadataFetch: true # Force metadata fetch every minutes
+  port: 4000
+  authenitcation: false
+  authenitcationPublicKey:
+  studio: true
+  studioBasicAuthentication:
+  lang: fr
+  timezone: Europe/Paris
+  timeoutConversion: "60000" # 1min
+  nbConvertThread: "1"
+  maxInputSize : "62914560" # 60Mo
+  nbReportMaxPerBatch: 100
+  license: 
+
+persistentStorage:
+  # Only one type of persistent Storage should be defined
+  persistentVolume:
+    enabled: false
+    # For multi-instance, volume capacity must be ReadWriteMany
+    persistentVolumeClaimName: carbone-storage
+    # Template storage is mandatory
+    templateFolder: templates
+    # Should be enable for multiple instance with Studio usage or rendering in two step (?download=false)
+    rendersFolder: renders
+  s3:
+    enabled: false
+    templatesBucket:
+    rendersBucket:
+    endpoint:
+    region:
+    accessKeyId:
+    accessKeySecret:
+  azureBlobStorage:
+    enabled: false
+    templatesContainer:
+    rendersContainer:
+    storageAccount:
+    storageKey:
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Security
+podSecurityContext:
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

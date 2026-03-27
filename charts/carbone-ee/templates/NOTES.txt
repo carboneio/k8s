@@ -1,0 +1,72 @@
+#######################################################################
+############# Carbone - document generator is running #################
+#######################################################################
+
+{{- if .Values.autoscaling.enabled }}
+----
+Running Carbone with autoscaling (form {{ .Values.autoscaling.minReplicas }} to {{ .Values.autoscaling.maxReplicas }})
+{{- else}}
+----
+Running {{ .Values.replicaCount}} Carbone pods
+{{- end}}
+
+
+{{- if .Values.persistentStorage.persistentVolume.enabled }}
+{{- if .Values.persistentStorage.persistentVolume.persistentTemplatesVolumeClaimName }}
+Attached {{ .Values.persistentStorage.persistentVolume.persistentTemplatesVolumeClaimName }} volume for templates storage
+{{- else }}
+/!\ Template volume is not set. Don't use this configuration in production
+{{- end }}
+{{- if .Values.persistentStorage.persistentVolume.persistentRendersVolumeClaimName }}
+Attached {{ .Values.persistentStorage.persistentVolume.persistentRendersVolumeClaimName }} volume for renders storage
+{{- end }}
+{{- else if .Values.persistentStorage.s3.enabled }}
+Using S3 plugins (endpoint : {{ .Values.persistentStorage.s3.endpoint }} ) :
+{{- if .Values.persistentStorage.s3.templatesBucket }}
+    - templates in {{ .Values.persistentStorage.s3.templatesBucket }} bucket
+{{- end }}
+{{- if .Values.persistentStorage.s3.rendersBucket }}
+    - renders in {{ .Values.persistentStorage.s3.rendersBucket }} bucket
+{{- end }}
+{{- else if .Values.persistentStorage.azureBlobStorage.enabled }}
+Using Azure Blob Storage plugins
+{{- if .Values.persistentStorage.azureBlobStorage.templatesContainer }}
+    - templates in {{ .Values.persistentStorage.azureBlobStorage.templatesContainer }} container
+{{- end }}
+{{-  if .Values.persistentStorage.azureBlobStorage.rendersContainer }}
+    - renders in {{ .Values.persistentStorage.azureBlobStorage.rendersContainer }} container
+{{- end }}
+{{- else }}
+/!\ No persistant storage configured.
+You should not use this configuration in production
+{{- end }}
+
+{{- if .Values.applicationConfiguration.authentication }}
+API access is secured with authentication
+{{- else }}
+/!\ API is available without authentication
+{{- end }}
+
+{{- if .Values.applicationConfiguration.templateManagement }}
+Full template managment is enabled
+{{- end }}
+
+{{- if not .Values.applicationConfiguration.license }}
+No Licence : Only community features
+{{- end }}
+
+----
+{{- if .Values.ingress.enabled }}
+{{- if .Values.applicationConfiguration.studio }}
+Carbone APIs and Studio are available on this/these urls : 
+{{- else }}
+Carbone APIs are available on this/these urls :
+{{- end }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else }}
+/!\ Ingress in not configured so Carbone service is not accessible outside cluster
+{{- end }}

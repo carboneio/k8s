@@ -1,0 +1,28 @@
+# This block is for setting up the ingress for more information can be found here: https://kuberkubnetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: 
+      paths:
+        - path: /
+          pathType: Prefix
+
+replicaCount: 2
+
+applicationConfiguration:
+  authentication: false
+  authenticationPublicKey:
+  licence: <Your License>
+
+persistentStorage:
+  s3:
+    enabled: true
+    templatesBucket: <Bucket name to store templates>
+    rendersBucket: <Bucket name to store renders>
+    endpoint: storage.googleapis.com
+    region: eu
+    accessKeyId: <S3 Access key id>
+    accessKeySecret: <S3 Access key secret>

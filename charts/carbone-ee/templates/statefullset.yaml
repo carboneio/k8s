@@ -1,0 +1,185 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "carbone-ee.fullname" . }}
+  labels:
+    {{- include "carbone-ee.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ printf "%s-service" (include "carbone-ee.fullname" .) }}
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "carbone-ee.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "carbone-ee.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "carbone-ee.serviceAccountName" . }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:full-{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.applicationConfiguration.port }}
+              protocol: TCP
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: CARBONE_EE_STUDIO
+              value: {{ .Values.applicationConfiguration.studio | quote }}
+            {{- if .Values.applicationConfiguration.studioBasicAuthentication }}
+            - name: CARBONE_EE_STUDIOUSER
+              value: {{ .Values.applicationConfiguration.studioBasicAuthentication | quote }}
+            {{- end }}
+            - name: CARBONE_TEMPLATE_MANAGEMENT
+              value: {{ .Values.applicationConfiguration.templateManagement | quote}}
+            {{- if .Values.applicationConfiguration.forceMetadataFetch }}
+            - name: CARBONE_TEMPLATE_METADATA_FLUSH_CRON
+              value: "* * * * *"
+            {{- end }}
+            {{- if and .Values.applicationConfiguration.templateManagement (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
+            - name: CARBONE_PEER_PORT
+              value: "5001"
+            - name: CARBONE_PEER_ENDPOINTS
+              value: {{ printf "ws://%s-service" (include "carbone-ee.fullname" .) }}
+            {{- end }}
+            - name: CARBONE_EE_AUTHENTICATION
+              value: {{ .Values.applicationConfiguration.authenication | quote }}
+            - name: CARBONE_EE_PORT
+              value: {{ .Values.applicationConfiguration.port | quote }}
+            - name: CARBONE_EE_FACTORIES
+              value: {{ .Values.applicationConfiguration.nbConvertThread | quote }}
+            - name: CARBONE_EE_CONVERTERFACTORYTIMEOUT
+              value: {{ .Values.applicationConfiguration.timeoutConversion | quote }}
+            - name: CARBONE_EE_MAXDATASIZE
+              value: {{ .Values.applicationConfiguration.maxInputSize | quote }}
+            - name: CARBONE_EE_EN
+              value: {{ .Values.applicationConfiguration.lang | quote }}
+            - name: CARBONE_EE_TIMEZONE
+              value: {{ .Values.applicationConfiguration.timezone | quote }}
+            - name: CARBONE_EE_NBREPORTMAXPERBATCH
+              value: {{ .Values.applicationConfiguration.nbReportMaxPerBatch | quote }}
+            {{- if .Values.applicationConfiguration.license }}
+            - name: CARBONE_EE_LICENSE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "carbone-ee.fullname" . }}
+                  key: license
+            {{- end }}
+            {{- if .Values.applicationConfiguration.authentication }}
+            - name: CARBONE_AUTHENTICATION_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "carbone-ee.fullname" . }}
+                  key: publicKey
+            {{- end }}
+            # S3 config
+            {{- if .Values.persistentStorage.s3.enabled }}
+            - name: AWS_ENDPOINT_URL
+              value: {{ .Values.persistentStorage.s3.endpoint | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.persistentStorage.s3.region | quote }}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "carbone-ee.fullname" . }}
+                  key: s3AccesKeyId
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "carbone-ee.fullname" . }}
+                  key: s3AccessKeySecret
+            {{- if .Values.persistentStorage.s3.templatesBucket }}
+            - name: BUCKET_TEMPLATES
+              value: {{ .Values.persistentStorage.s3.templatesBucket | quote }}
+            {{- end }}
+            {{- if .Values.persistentStorage.s3.rendersBucket }}
+            - name: BUCKET_RENDERS
+              value: {{ .Values.persistentStorage.s3.rendersBucket | quote }}
+            {{- end }}
+            {{- else if .Values.persistentStorage.azureBlobStorage.enabled }}
+            - name: CARBONE_USE_AZURE_PLUGIN
+              value: "true"
+            - name: AZURE_STORAGE_ACCOUNT
+              value: {{ .Values.persistentStorage.azureBlobStorage.storageAccount | quote }}
+            {{- if .Values.persistentStorage.azureBlobStorage.storageKey }}
+            - name: AZURE_STORAGE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "carbone-ee.fullname" . }}
+                  key: azureStorageKey
+            {{- end }}
+            {{- if .Values.persistentStorage.azureBlobStorage.templatesContainer }}
+            - name: CONTAINER_TEMPLATES
+              value: {{ .Values.persistentStorage.azureBlobStorage.templatesContainer | quote }}
+            {{- end }}
+            {{- if .Values.persistentStorage.azureBlobStorage.rendersContainer }}
+            - name: CONTAINER_RENDERS
+              value: {{ .Values.persistentStorage.azureBlobStorage.rendersContainer | quote }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.persistentStorage.persistentVolume.enabled }}
+          volumeMounts:
+          {{- if .Values.persistentStorage.persistentVolume.templateFolder }}
+          - mountPath: /app/template
+            name: carbone-storage
+            subPath: {{ .Values.persistentStorage.persistentVolume.templateFolder | quote }}
+          {{- end }}
+          {{- if .Values.persistentStorage.persistentVolume.rendersFolder }}
+          - mountPath: /app/render
+            name: carbone-storage
+            subPath: {{ .Values.persistentStorage.persistentVolume.rendersFolder | quote }}
+          {{- end }}
+          {{- end }}
+
+      # Volume optionnal mount
+      {{- if .Values.persistentStorage.persistentVolume.enabled }}
+      volumes:
+        {{- if .Values.persistentStorage.persistentVolume.persistentVolumeClaimName }}
+        - name: carbone-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistentStorage.persistentVolume.persistentVolumeClaimName | quote }}
+        {{- end }}
+      {{- end }}
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,25 @@
+# This block is for setting up the ingress for more information can be found here: https://kuberkubnetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: 
+      paths:
+        - path: /
+          pathType: Prefix
+
+replicaCount: 2
+
+applicationConfiguration:
+  authentication: false
+  authenticationPublicKey:
+  license: <Your Licence>
+
+persistentStorage:
+  azureBlobStorage:
+    enabled: true
+    templatesContainer: <Container name for templates storage>
+    rendersContainer: <Container name for renders storage>
+    storageAccount: <Storage Account>
+    storageKey: <Storage Key>

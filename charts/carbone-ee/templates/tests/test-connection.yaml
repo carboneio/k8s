@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "carbone-ee.fullname" . }}-test-connection"
+  labels:
+    {{- include "carbone-ee.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "carbone-ee.fullname" . }}:{{ .Values.applicationConfiguration.port }}/status']
+      securityContext:
+        readOnlyRootFilesystem: true        # ← ReadOnlyRootFilesystem
+        runAsNonRoot: true                  # ← User Group ID
+        runAsUser: 100000                   # ← UID non-root
+        runAsGroup: 100000                  # ← GID non-root
+        allowPrivilegeEscalation: false     # bonne pratique
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+          ephemeral-storage: "100Mi"
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+          ephemeral-storage: "500Mi"
+  restartPolicy: Never

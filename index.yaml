@@ -1,0 +1,32 @@
+apiVersion: v1
+entries:
+  carbone-ee:
+  - apiVersion: v2
+    appVersion: 5.4.1
+    created: "2026-03-27T23:44:58.923345+01:00"
+    description: Helm chart for Carbone deployment
+    digest: 5a184480655eef6d205ebbf9c97ad13d2fcf773109344c744abddc16751e8a14
+    home: https://carbone.io
+    icon: https://carbone.io/img/carbone-logo.svg
+    maintainers:
+    - email: support@carbone.io
+      name: Carbone template
+      url: https://carbone.io
+    name: carbone-ee
+    sources:
+    - https://github.com/carbone/k8s
+    type: application
+    urls:
+    - https://bin.carbone.io/helm/carbone-ee-1.0.0.tgz
+    version: 1.0.0
+  - apiVersion: v2
+    appVersion: 5.0.0-beta.20
+    created: "2025-09-16T16:46:07.629222+02:00"
+    description: Helm chart for Carbone deployment
+    digest: 04340e0e642740fb57150f0bb5767ff3af36998bb1805390448ecd5447df299e
+    name: carbone-ee
+    type: application
+    urls:
+    - https://bin.carbone.io/helm/carbone-ee-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-03-27T23:44:58.921943+01:00"

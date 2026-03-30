@@ -18,6 +18,7 @@ Execute the following for installing the chart:
 
 ```bash
 helm upgrade -i -n carbone carbone-ee carbone/carbone-ee
+```
 
 # Deleting the Chart
 Execute the following for deleting the chart:

@@ -1,0 +1,60 @@
+suite: Ingress
+templates:
+  - templates/ingress.yaml
+tests:
+  - it: should be created when ingress is enabled
+    asserts:
+      - isKind:
+          of: Ingress
+      - hasDocuments:
+          count: 1
+
+  - it: should not be created when ingress is disabled
+    set:
+      ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: defaultBackend should point to the ClusterIP service (not headless)
+    asserts:
+      - equal:
+          path: spec.defaultBackend.service.name
+          value: carbone-ee-production
+      - notEqual:
+          path: spec.defaultBackend.service.name
+          value: carbone-ee-production-service
+
+  - it: rules backend should point to the ClusterIP service (not headless)
+    values:
+      - ./fixtures/ingress-with-host.yaml
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: carbone-ee-production
+      - notEqual:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: carbone-ee-production-service
+
+  - it: should set ingressClassName when provided
+    set:
+      ingress.className: nginx
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+
+  - it: should configure TLS when provided
+    values:
+      - ./fixtures/ingress-tls.yaml
+    asserts:
+      - isNotNull:
+          path: spec.tls
+      - equal:
+          path: spec.tls[0].secretName
+          value: carbone-tls
+
+  - it: should not render TLS when not provided
+    asserts:
+      - isNull:
+          path: spec.tls

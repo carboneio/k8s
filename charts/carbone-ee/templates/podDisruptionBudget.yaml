@@ -6,4 +6,4 @@ spec:
   minAvailable: 1          # ou maxUnavailable: 1
   selector:
     matchLabels:
-      {{- include "carbone-ee.labels" . | nindent 6 }}
+      {{- include "carbone-ee.selectorLabels" . | nindent 6 }}

@@ -1,0 +1,159 @@
+suite: StatefulSet
+templates:
+  - templates/statefullset.yaml
+tests:
+  - it: should be a StatefulSet named after fullnameOverride
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - equal:
+          path: metadata.name
+          value: carbone-ee-production
+
+  - it: should reference the headless service
+    asserts:
+      - equal:
+          path: spec.serviceName
+          value: carbone-ee-production-service
+
+  - it: should set replicas from values when autoscaling is disabled
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 4
+
+  - it: should omit replicas field when autoscaling is enabled
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - isNull:
+          path: spec.replicas
+
+  - it: should set CARBONE_EE_AUTHENTICATION using the correct field name
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_EE_AUTHENTICATION
+            value: "false"
+
+  - it: should set peer endpoints when replicaCount > 1 and templateManagement is enabled
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_PEER_PORT
+            value: "5001"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_PEER_ENDPOINTS
+            value: ws://carbone-ee-production-service
+
+  - it: should not set peer endpoints when replicaCount is 1
+    set:
+      replicaCount: 1
+      autoscaling.enabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_PEER_PORT
+
+  - it: should not set peer endpoints when templateManagement is disabled
+    set:
+      applicationConfiguration.templateManagement: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_PEER_PORT
+
+  - it: should have a readinessProbe
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.containers[0].readinessProbe
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /status
+
+  - it: should have a livenessProbe
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.containers[0].livenessProbe
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /status
+
+  - it: should inject license from secret when set
+    set:
+      applicationConfiguration.license: my-license
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_EE_LICENSE
+            valueFrom:
+              secretKeyRef:
+                name: carbone-ee-production
+                key: license
+
+  - it: should not inject license env var when license is empty
+    set:
+      applicationConfiguration.license: ""
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_EE_LICENSE
+
+  - it: should set S3 env vars when S3 storage is enabled
+    set:
+      persistentStorage.s3.enabled: true
+      persistentStorage.s3.endpoint: https://s3.example.com
+      persistentStorage.s3.region: eu-west-1
+      persistentStorage.s3.accessKeyId: mykey
+      persistentStorage.s3.accessKeySecret: mysecret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AWS_ENDPOINT_URL
+            value: "https://s3.example.com"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AWS_REGION
+            value: eu-west-1
+
+  - it: should set Azure env vars when Azure storage is enabled
+    set:
+      persistentStorage.azureBlobStorage.enabled: true
+      persistentStorage.azureBlobStorage.storageAccount: myaccount
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_USE_AZURE_PLUGIN
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: AZURE_STORAGE_ACCOUNT
+            value: myaccount
+
+  - it: should create an initContainer and volume mount when persistentVolume is enabled
+    set:
+      persistentStorage.persistentVolume.enabled: true
+      persistentStorage.persistentVolume.persistentVolumeClaimName: my-pvc
+      persistentStorage.persistentVolume.templateFolder: templates
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.initContainers
+      - isNotNull:
+          path: spec.template.spec.containers[0].volumeMounts
+
+  - it: should not create initContainer when persistentVolume is disabled
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers

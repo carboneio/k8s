@@ -1,0 +1,25 @@
+suite: PodDisruptionBudget
+templates:
+  - templates/podDisruptionBudget.yaml
+tests:
+  - it: should be a PodDisruptionBudget
+    asserts:
+      - isKind:
+          of: PodDisruptionBudget
+
+  - it: should require at least 1 pod available
+    asserts:
+      - equal:
+          path: spec.minAvailable
+          value: 1
+
+  - it: matchLabels should use selectorLabels only (not helm.sh/chart or version)
+    asserts:
+      - isNotNull:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+      - isNotNull:
+          path: spec.selector.matchLabels["app.kubernetes.io/instance"]
+      - isNull:
+          path: spec.selector.matchLabels["helm.sh/chart"]
+      - isNull:
+          path: spec.selector.matchLabels["app.kubernetes.io/version"]

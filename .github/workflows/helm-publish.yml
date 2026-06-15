@@ -1,0 +1,98 @@
+name: Publish Helm Chart
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'charts/carbone-ee/Chart.yaml'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      - name: Read chart version
+        id: chart
+        run: |
+          VERSION=$(helm show chart charts/carbone-ee | grep '^version:' | awk '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "filename=carbone-ee-${VERSION}.tgz" >> $GITHUB_OUTPUT
+
+      - name: Check if version already published
+        id: check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://bin.carbone.io/helm/${{ steps.chart.outputs.filename }}")
+          if [ "$STATUS" = "200" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Version ${{ steps.chart.outputs.version }} already published — skipping."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Package chart
+        if: steps.check.outputs.exists == 'false'
+        run: helm package charts/carbone-ee --destination ./dist
+
+      - name: Download existing index from CDN
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          curl -f -o ./dist/index-existing.yaml \
+            https://bin.carbone.io/helm/index.yaml \
+            || echo "No existing index found, will create a new one."
+
+      - name: Generate updated index
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          if [ -f ./dist/index-existing.yaml ]; then
+            helm repo index ./dist \
+              --url https://bin.carbone.io/helm/ \
+              --merge ./dist/index-existing.yaml
+          else
+            helm repo index ./dist --url https://bin.carbone.io/helm/
+          fi
+
+      - name: Upload chart to Bunny CDN
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          curl -X PUT \
+            -H "AccessKey: ${{ secrets.BUNNY_STORAGE_API_KEY }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"./dist/${{ steps.chart.outputs.filename }}" \
+            "https://storage.bunnycdn.com/${{ secrets.BUNNY_STORAGE_ZONE }}/helm/${{ steps.chart.outputs.filename }}"
+
+      - name: Upload index to Bunny CDN
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          curl -X PUT \
+            -H "AccessKey: ${{ secrets.BUNNY_STORAGE_API_KEY }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @./dist/index.yaml \
+            "https://storage.bunnycdn.com/${{ secrets.BUNNY_STORAGE_ZONE }}/helm/index.yaml"
+
+      - name: Purge CDN cache for index.yaml
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          curl -X POST \
+            -H "AccessKey: ${{ secrets.BUNNY_API_KEY }}" \
+            "https://api.bunny.net/purge?url=https://bin.carbone.io/helm/index.yaml&async=false"
+
+      - name: Summary
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          echo "### Published carbone-ee ${{ steps.chart.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Chart: https://bin.carbone.io/helm/${{ steps.chart.outputs.filename }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Index: https://bin.carbone.io/helm/index.yaml" >> $GITHUB_STEP_SUMMARY

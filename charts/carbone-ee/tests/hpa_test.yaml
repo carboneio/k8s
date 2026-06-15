@@ -1,0 +1,76 @@
+suite: HorizontalPodAutoscaler
+templates:
+  - templates/hpa.yaml
+tests:
+  - it: should not be created when autoscaling is disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should be created when autoscaling is enabled
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - isKind:
+          of: HorizontalPodAutoscaler
+      - hasDocuments:
+          count: 1
+
+  - it: should target a StatefulSet not a Deployment
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - equal:
+          path: spec.scaleTargetRef.kind
+          value: StatefulSet
+
+  - it: should target the correct StatefulSet name
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: carbone-ee-production
+
+  - it: should set min and max replicas
+    set:
+      autoscaling.enabled: true
+      autoscaling.minReplicas: 2
+      autoscaling.maxReplicas: 10
+    asserts:
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.maxReplicas
+          value: 10
+
+  - it: should include CPU metric when targetCPUUtilizationPercentage is set
+    set:
+      autoscaling.enabled: true
+      autoscaling.targetCPUUtilizationPercentage: 70
+    asserts:
+      - contains:
+          path: spec.metrics
+          content:
+            type: Resource
+            resource:
+              name: cpu
+              target:
+                type: Utilization
+                averageUtilization: 70
+
+  - it: should include memory metric when targetMemoryUtilizationPercentage is set
+    set:
+      autoscaling.enabled: true
+      autoscaling.targetMemoryUtilizationPercentage: 80
+    asserts:
+      - contains:
+          path: spec.metrics
+          content:
+            type: Resource
+            resource:
+              name: memory
+              target:
+                type: Utilization
+                averageUtilization: 80

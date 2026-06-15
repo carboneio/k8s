@@ -12,7 +12,7 @@ metadata:
 spec:
   defaultBackend:
     service:
-      name: {{ printf "%s-service" (include "carbone-ee.fullname" .) }}
+      name: {{ include "carbone-ee.fullname" . }}
       port:
         number: {{ $.Values.applicationConfiguration.port }}
   {{- with .Values.ingress.className }}
@@ -40,7 +40,7 @@ spec:
             {{- end }}
             backend:
               service:
-                name: {{ printf "%s-service" (include "carbone-ee.fullname" $) }}
+                name: {{ include "carbone-ee.fullname" $ }}
                 port:
                   number: {{ $.Values.applicationConfiguration.port }}
           {{- end }}

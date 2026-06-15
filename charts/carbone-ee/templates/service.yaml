@@ -13,3 +13,19 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "carbone-ee.fullname" . }}
+  labels:
+    {{- include "carbone-ee.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "carbone-ee.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.applicationConfiguration.port }}
+      targetPort: http
+      protocol: TCP
+      name: http

@@ -29,6 +29,15 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "carbone-ee.serviceAccountName" . }}
+      {{- if .Values.persistentStorage.persistentVolume.enabled }}
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 1000:1000 /mnt"]
+          volumeMounts:
+            - name: carbone-storage
+              mountPath: /mnt
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:full-{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -61,7 +70,7 @@ spec:
               value: {{ printf "ws://%s-service" (include "carbone-ee.fullname" .) }}
             {{- end }}
             - name: CARBONE_EE_AUTHENTICATION
-              value: {{ .Values.applicationConfiguration.authenication | quote }}
+              value: {{ .Values.applicationConfiguration.authentication | quote }}
             - name: CARBONE_EE_PORT
               value: {{ .Values.applicationConfiguration.port | quote }}
             - name: CARBONE_EE_FACTORIES

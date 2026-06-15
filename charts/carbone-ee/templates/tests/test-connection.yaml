@@ -11,7 +11,7 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "carbone-ee.fullname" . }}:{{ .Values.applicationConfiguration.port }}/status']
+      args: ['-O', '-', '{{ include "carbone-ee.fullname" . }}:{{ .Values.applicationConfiguration.port }}/status']
       securityContext:
         readOnlyRootFilesystem: true        # ← ReadOnlyRootFilesystem
         runAsNonRoot: true                  # ← User Group ID

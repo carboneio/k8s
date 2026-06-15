@@ -1,0 +1,11 @@
+ingress:
+  enabled: true
+  tls:
+    - secretName: carbone-tls
+      hosts:
+        - carbone.example.com
+  hosts:
+    - host: carbone.example.com
+      paths:
+        - path: /
+          pathType: Prefix

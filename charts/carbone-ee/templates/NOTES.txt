@@ -1,72 +1,95 @@
-#######################################################################
-############# Carbone - document generator is running #################
-#######################################################################
+╔══════════════════════════════════════════════════════════╗
+║              Carbone EE — Deployment Summary             ║
+╚══════════════════════════════════════════════════════════╝
 
+Release   : {{ .Release.Name }}
+Namespace : {{ .Release.Namespace }}
+Image     : {{ .Values.image.repository }}:full-{{ .Values.image.tag | default .Chart.AppVersion }}
+
+━━━ Scaling ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- if .Values.autoscaling.enabled }}
-----
-Running Carbone with autoscaling (form {{ .Values.autoscaling.minReplicas }} to {{ .Values.autoscaling.maxReplicas }})
-{{- else}}
-----
-Running {{ .Values.replicaCount}} Carbone pods
-{{- end}}
+  Autoscaling   : enabled (from {{ .Values.autoscaling.minReplicas }} to {{ .Values.autoscaling.maxReplicas }} replicas)
+  CPU target    : {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%
+{{- else }}
+  Replicas      : {{ .Values.replicaCount }}
+{{- end }}
+{{- if and .Values.applicationConfiguration.templateManagement (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
+  Peer sync     : enabled (WebSocket on port 5001)
+{{- end }}
 
-
+━━━ Storage ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- if .Values.persistentStorage.persistentVolume.enabled }}
-{{- if .Values.persistentStorage.persistentVolume.persistentTemplatesVolumeClaimName }}
-Attached {{ .Values.persistentStorage.persistentVolume.persistentTemplatesVolumeClaimName }} volume for templates storage
-{{- else }}
-/!\ Template volume is not set. Don't use this configuration in production
-{{- end }}
-{{- if .Values.persistentStorage.persistentVolume.persistentRendersVolumeClaimName }}
-Attached {{ .Values.persistentStorage.persistentVolume.persistentRendersVolumeClaimName }} volume for renders storage
-{{- end }}
+  Backend       : PersistentVolume
+  {{- if .Values.persistentStorage.persistentVolume.persistentVolumeClaimName }}
+  Claim         : {{ .Values.persistentStorage.persistentVolume.persistentVolumeClaimName }}
+  {{- else }}
+  [!] No PVC configured — templates will not persist across restarts
+  {{- end }}
+  {{- if .Values.persistentStorage.persistentVolume.templateFolder }}
+  Templates     : {{ .Values.persistentStorage.persistentVolume.templateFolder }}
+  {{- end }}
+  {{- if .Values.persistentStorage.persistentVolume.rendersFolder }}
+  Renders       : {{ .Values.persistentStorage.persistentVolume.rendersFolder }}
+  {{- end }}
 {{- else if .Values.persistentStorage.s3.enabled }}
-Using S3 plugins (endpoint : {{ .Values.persistentStorage.s3.endpoint }} ) :
-{{- if .Values.persistentStorage.s3.templatesBucket }}
-    - templates in {{ .Values.persistentStorage.s3.templatesBucket }} bucket
-{{- end }}
-{{- if .Values.persistentStorage.s3.rendersBucket }}
-    - renders in {{ .Values.persistentStorage.s3.rendersBucket }} bucket
-{{- end }}
+  Backend       : S3 ({{ .Values.persistentStorage.s3.endpoint }}, region: {{ .Values.persistentStorage.s3.region }})
+  {{- if .Values.persistentStorage.s3.templatesBucket }}
+  Templates     : s3://{{ .Values.persistentStorage.s3.templatesBucket }}
+  {{- end }}
+  {{- if .Values.persistentStorage.s3.rendersBucket }}
+  Renders       : s3://{{ .Values.persistentStorage.s3.rendersBucket }}
+  {{- end }}
 {{- else if .Values.persistentStorage.azureBlobStorage.enabled }}
-Using Azure Blob Storage plugins
-{{- if .Values.persistentStorage.azureBlobStorage.templatesContainer }}
-    - templates in {{ .Values.persistentStorage.azureBlobStorage.templatesContainer }} container
-{{- end }}
-{{-  if .Values.persistentStorage.azureBlobStorage.rendersContainer }}
-    - renders in {{ .Values.persistentStorage.azureBlobStorage.rendersContainer }} container
-{{- end }}
+  Backend       : Azure Blob Storage (account: {{ .Values.persistentStorage.azureBlobStorage.storageAccount }})
+  {{- if .Values.persistentStorage.azureBlobStorage.templatesContainer }}
+  Templates     : {{ .Values.persistentStorage.azureBlobStorage.templatesContainer }}
+  {{- end }}
+  {{- if .Values.persistentStorage.azureBlobStorage.rendersContainer }}
+  Renders       : {{ .Values.persistentStorage.azureBlobStorage.rendersContainer }}
+  {{- end }}
 {{- else }}
-/!\ No persistant storage configured.
-You should not use this configuration in production
+  [!] No persistent storage — templates are ephemeral (in-memory only)
+      Not suitable for production or multi-instance deployments.
 {{- end }}
 
+━━━ Security ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- if .Values.applicationConfiguration.authentication }}
-API access is secured with authentication
+  Authentication : enabled (JWT / public key)
 {{- else }}
-/!\ API is available without authentication
+  [!] Authentication is disabled — the API is publicly accessible
 {{- end }}
-
-{{- if .Values.applicationConfiguration.templateManagement }}
-Full template managment is enabled
-{{- end }}
-
 {{- if not .Values.applicationConfiguration.license }}
-No Licence : Only community features
+  [!] No license key — running in community mode (limited features)
 {{- end }}
 
-----
-{{- if .Values.ingress.enabled }}
+━━━ Studio ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 {{- if .Values.applicationConfiguration.studio }}
-Carbone APIs and Studio are available on this/these urls : 
+  Studio        : enabled
+  {{- if .Values.applicationConfiguration.studioBasicAuthentication }}
+  Basic auth    : configured
+  {{- else }}
+  [!] Studio has no basic auth — anyone with network access can use it
+  {{- end }}
 {{- else }}
-Carbone APIs are available on this/these urls :
+  Studio        : disabled
 {{- end }}
+
+━━━ Access ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
   {{- range .paths }}
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}
 {{- end }}
 {{- else }}
-/!\ Ingress in not configured so Carbone service is not accessible outside cluster
+  [!] Ingress is disabled — Carbone is not reachable outside the cluster
+      To access it locally:
+      kubectl port-forward svc/{{ include "carbone-ee.fullname" . }} {{ .Values.applicationConfiguration.port }}:{{ .Values.applicationConfiguration.port }} -n {{ .Release.Namespace }}
 {{- end }}
+
+━━━ Verify ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Check pod status:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}
+
+  Run connectivity test:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

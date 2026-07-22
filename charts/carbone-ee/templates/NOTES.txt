@@ -87,6 +87,12 @@ Image     : {{ .Values.image.repository }}:full-{{ .Values.image.tag | default .
       kubectl port-forward svc/{{ include "carbone-ee.fullname" . }} {{ .Values.applicationConfiguration.port }}:{{ .Values.applicationConfiguration.port }} -n {{ .Release.Namespace }}
 {{- end }}
 
+{{- if and .Values.applicationConfiguration.jobBalancer (not .Values.applicationConfiguration.templateManagement) }}
+⚠️  WARNING: jobBalancer is enabled but templateManagement is disabled.
+    Job balancing requires templateManagement to be active.
+    Set applicationConfiguration.templateManagement=true or the job balancer will have no effect.
+
+{{- end }}
 ━━━ Verify ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Check pod status:
   kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }}

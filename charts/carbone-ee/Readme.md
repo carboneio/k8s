@@ -57,6 +57,7 @@ The recommended approach is to maintain a `values.yaml` file and pass it with `-
 | `applicationConfiguration.timeoutConversion` | Conversion timeout in ms | `60000` |
 | `applicationConfiguration.maxInputSize` | Max request body size in bytes | `62914560` |
 | `applicationConfiguration.templateManagement` | Enable template CRUD API | `true` |
+| `applicationConfiguration.jobBalancer` | Distribute rendering jobs evenly across instances (requires `templateManagement: true`, Carbone ≥ 5.9.0) | `false` |
 
 ### Autoscaling
 
@@ -125,6 +126,14 @@ persistentStorage:
 ## Multi-instance and high availability
 
 When `replicaCount > 1` or `autoscaling.enabled: true`, pods automatically discover each other via WebSocket (port 5001) and synchronize template metadata. No additional configuration is required — peer discovery is handled by the headless service.
+
+To distribute rendering jobs evenly across instances, enable the job balancer (requires Carbone ≥ 5.9.0):
+
+```yaml
+applicationConfiguration:
+  templateManagement: true  # required
+  jobBalancer: true
+```
 
 For optimal availability with multiple replicas, consider adding topology spread constraints to your `values.yaml`:
 

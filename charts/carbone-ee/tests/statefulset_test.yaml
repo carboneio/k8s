@@ -157,3 +157,33 @@ tests:
     asserts:
       - isNull:
           path: spec.template.spec.initContainers
+
+  - it: should set CARBONE_JOB_BALANCER when jobBalancer and templateManagement are enabled
+    set:
+      applicationConfiguration.jobBalancer: true
+      applicationConfiguration.templateManagement: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_JOB_BALANCER
+            value: "true"
+
+  - it: should not set CARBONE_JOB_BALANCER when jobBalancer is disabled
+    set:
+      applicationConfiguration.jobBalancer: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_JOB_BALANCER
+
+  - it: should not set CARBONE_JOB_BALANCER when templateManagement is disabled
+    set:
+      applicationConfiguration.jobBalancer: true
+      applicationConfiguration.templateManagement: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_JOB_BALANCER

@@ -96,6 +96,7 @@ autoscaling:
 applicationConfiguration:
   templateManagement: true
   forceMetadataFetch: true # Force metadata fetch every minutes
+  jobBalancer: false
   port: 4000
   authentication: false
   authenticationPublicKey:

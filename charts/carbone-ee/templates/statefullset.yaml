@@ -69,6 +69,10 @@ spec:
             - name: CARBONE_PEER_ENDPOINTS
               value: {{ printf "ws://%s-service" (include "carbone-ee.fullname" .) }}
             {{- end }}
+            {{- if and .Values.applicationConfiguration.jobBalancer .Values.applicationConfiguration.templateManagement }}
+            - name: CARBONE_JOB_BALANCER
+              value: "true"
+            {{- end }}
             - name: CARBONE_EE_AUTHENTICATION
               value: {{ .Values.applicationConfiguration.authentication | quote }}
             - name: CARBONE_EE_PORT

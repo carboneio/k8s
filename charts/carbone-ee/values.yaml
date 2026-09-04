@@ -98,6 +98,10 @@ applicationConfiguration:
   forceMetadataFetch: true # Force metadata fetch every minutes
   jobBalancer: false
   port: 4000
+  # Port of the peer replication WebSocket, used when several pods synchronize their
+  # template metadata. No Service and no Ingress exposes it: it is reachable on the pod
+  # network only, and restricted by the networkPolicy section below.
+  peerPort: 5001
   authentication: false
   authenticationPublicKey:
   studio: true
@@ -142,6 +146,37 @@ tolerations: []
 affinity: {}
 
 # Security
+
+# Restricts who may reach the pods over the network.
+#
+# The peer replication port has no authentication of its own: any workload able to open a
+# WebSocket on it can register itself as a Carbone peer, receive the template metadata of this
+# deployment and be handed rendering jobs queued by its tenants. This policy is what keeps that
+# port reachable by the pods of this release only.
+#
+# It is rendered only when peer replication is actually active, that is when templateManagement
+# is enabled together with more than one replica or with autoscaling.
+#
+# [!] A NetworkPolicy is enforced by the CNI plugin, not by Kubernetes itself. Calico, Cilium
+#     and Antrea enforce it; plain Flannel and a few managed offerings ignore it silently, and
+#     the policy is then created without protecting anything. Check your cluster's CNI.
+networkPolicy:
+  enabled: true
+  # Extra sources allowed to reach the peer port, on top of the pods of this release. Use it when
+  # legitimate peers run in another namespace. Same syntax as a NetworkPolicy `from` entry.
+  # peerIngressFrom:
+  #   - namespaceSelector:
+  #       matchLabels:
+  #         kubernetes.io/metadata.name: other-namespace
+  #     podSelector:
+  #       matchLabels:
+  #         app.kubernetes.io/name: carbone-ee
+  peerIngressFrom: []
+  # Sources allowed to reach the API port. Empty means every source, which is what happens today
+  # without any policy and keeps the ingress controller and the probes working. Narrow it only if
+  # you know which workloads call Carbone.
+  httpIngressFrom: []
+
 podSecurityContext:
   readOnlyRootFilesystem: false
   runAsNonRoot: true

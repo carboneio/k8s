@@ -63,9 +63,9 @@ spec:
             - name: CARBONE_TEMPLATE_METADATA_FLUSH_CRON
               value: "* * * * *"
             {{- end }}
-            {{- if and .Values.applicationConfiguration.templateManagement (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
+            {{- if include "carbone-ee.peerEnabled" . }}
             - name: CARBONE_PEER_PORT
-              value: "5001"
+              value: {{ include "carbone-ee.peerPort" . | quote }}
             - name: CARBONE_PEER_ENDPOINTS
               value: {{ printf "ws://%s-service" (include "carbone-ee.fullname" .) }}
             {{- end }}

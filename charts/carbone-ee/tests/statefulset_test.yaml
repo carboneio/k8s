@@ -50,6 +50,16 @@ tests:
             name: CARBONE_PEER_ENDPOINTS
             value: ws://carbone-ee-production-service
 
+  - it: should follow applicationConfiguration.peerPort when it is overridden
+    set:
+      applicationConfiguration.peerPort: 6001
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: CARBONE_PEER_PORT
+            value: "6001"
+
   - it: should not set peer endpoints when replicaCount is 1
     set:
       replicaCount: 1

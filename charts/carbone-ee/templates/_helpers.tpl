@@ -60,3 +60,20 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Peer synchronization is active when template metadata has to be replicated across several pods.
+Defined once so the StatefulSet, the NetworkPolicy and NOTES.txt cannot drift apart.
+Returns a non-empty string when active, an empty one (falsy) otherwise.
+*/}}
+{{- define "carbone-ee.peerEnabled" -}}
+{{- if and .Values.applicationConfiguration.templateManagement (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}true{{- end }}
+{{- end }}
+
+{{/*
+Port of the peer replication WebSocket. The NetworkPolicy must name the very same port as the
+container, otherwise it would restrict nothing.
+*/}}
+{{- define "carbone-ee.peerPort" -}}
+{{- .Values.applicationConfiguration.peerPort | default 5001 }}
+{{- end }}

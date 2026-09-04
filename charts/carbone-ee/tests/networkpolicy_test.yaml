@@ -1,0 +1,114 @@
+suite: NetworkPolicy
+templates:
+  - templates/networkPolicy.yaml
+tests:
+  - it: should be rendered by default, when peer replication is active
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: NetworkPolicy
+      - equal:
+          path: metadata.name
+          value: carbone-ee-production
+
+  - it: should select the pods of this release only
+    asserts:
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/name"]
+          value: carbone-ee
+      - equal:
+          path: spec.podSelector.matchLabels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+      - contains:
+          path: spec.policyTypes
+          content: Ingress
+
+  - it: should leave the API port open to every source
+    asserts:
+      - equal:
+          path: spec.ingress[0].ports[0].port
+          value: 4000
+      - isNull:
+          path: spec.ingress[0].from
+
+  - it: should restrict the peer port to the pods of this release
+    asserts:
+      - equal:
+          path: spec.ingress[1].ports[0].port
+          value: 5001
+      - lengthEqual:
+          path: spec.ingress[1].from
+          count: 1
+      - equal:
+          path: spec.ingress[1].from[0].podSelector.matchLabels["app.kubernetes.io/name"]
+          value: carbone-ee
+      - equal:
+          path: spec.ingress[1].from[0].podSelector.matchLabels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+
+  - it: should follow applicationConfiguration.peerPort
+    set:
+      applicationConfiguration.peerPort: 6001
+    asserts:
+      - equal:
+          path: spec.ingress[1].ports[0].port
+          value: 6001
+
+  - it: should append extra peer sources without dropping the release pods
+    set:
+      networkPolicy.peerIngressFrom:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: other-ns
+    asserts:
+      - lengthEqual:
+          path: spec.ingress[1].from
+          count: 2
+      - equal:
+          path: spec.ingress[1].from[1].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: other-ns
+
+  - it: should narrow the API port when httpIngressFrom is set
+    set:
+      networkPolicy.httpIngressFrom:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+    asserts:
+      - lengthEqual:
+          path: spec.ingress[0].from
+          count: 1
+      - equal:
+          path: spec.ingress[0].from[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]
+          value: ingress-nginx
+
+  - it: should not be rendered when there is a single replica and no peer port to protect
+    set:
+      replicaCount: 1
+      autoscaling.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not be rendered when templateManagement is disabled
+    set:
+      applicationConfiguration.templateManagement: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should be rendered when autoscaling is enabled even with a single replica
+    set:
+      replicaCount: 1
+      autoscaling.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: should not be rendered when explicitly disabled
+    set:
+      networkPolicy.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

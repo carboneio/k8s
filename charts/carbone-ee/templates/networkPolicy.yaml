@@ -1,0 +1,36 @@
+{{- if and .Values.networkPolicy.enabled (include "carbone-ee.peerEnabled" .) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "carbone-ee.fullname" . }}
+  labels:
+    {{- include "carbone-ee.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "carbone-ee.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    # The API port stays open to every source by default, so this policy changes nothing for the
+    # ingress controller, the kubelet probes and the in-cluster clients.
+    - ports:
+        - port: {{ .Values.applicationConfiguration.port }}
+          protocol: TCP
+      {{- with .Values.networkPolicy.httpIngressFrom }}
+      from:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    # The peer port carries template replication and job balancing, and authenticates no one:
+    # whoever reaches it is handed the cluster's work. Only the pods of this release may.
+    - ports:
+        - port: {{ include "carbone-ee.peerPort" . }}
+          protocol: TCP
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "carbone-ee.selectorLabels" . | nindent 14 }}
+        {{- with .Values.networkPolicy.peerIngressFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}

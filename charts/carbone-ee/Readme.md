@@ -47,6 +47,7 @@ The recommended approach is to maintain a `values.yaml` file and pass it with `-
 | `replicaCount` | Number of replicas | `4` |
 | `applicationConfiguration.license` | Carbone EE license key | `""` |
 | `applicationConfiguration.port` | HTTP port | `4000` |
+| `applicationConfiguration.peerPort` | Port of the peer replication WebSocket, used when several pods synchronize template metadata | `5001` |
 | `applicationConfiguration.studio` | Enable Carbone Studio UI | `true` |
 | `applicationConfiguration.studioBasicAuthentication` | Basic auth for Studio (`user:password`) | `""` |
 | `applicationConfiguration.authentication` | Enable JWT authentication on the API | `false` |
@@ -127,6 +128,8 @@ persistentStorage:
 
 When `replicaCount > 1` or `autoscaling.enabled: true`, pods automatically discover each other via WebSocket (port 5001) and synchronize template metadata. No additional configuration is required — peer discovery is handled by the headless service.
 
+> **The peer port is unauthenticated.** It carries template replication and job balancing, and it accepts any connection that reaches it: a workload able to open a WebSocket on it can register itself as a Carbone peer, read this deployment's template metadata and be handed rendering jobs queued by its tenants. It is never exposed by a Service or the Ingress, so it is reachable on the pod network only — and the chart ships a [NetworkPolicy](#network-policy) that closes it to everything but the pods of the release. Keep that policy on, or replace it with an equivalent control of your own.
+
 To distribute rendering jobs evenly across instances, enable the job balancer (requires Carbone ≥ 5.9.0):
 
 ```yaml
@@ -147,6 +150,52 @@ affinity:
             matchLabels:
               app.kubernetes.io/name: carbone-ee
           topologyKey: kubernetes.io/hostname
+```
+
+## Network policy
+
+Peer replication is what makes the port above worth protecting, so the chart renders a `NetworkPolicy` exactly when replication is active — `templateManagement: true` together with more than one replica or with autoscaling. It selects the pods of the release and allows two things:
+
+- the API port, from every source, so the ingress controller, the kubelet probes and your in-cluster clients are unaffected;
+- the peer port, from the pods of this release only.
+
+It is enabled by default:
+
+```yaml
+networkPolicy:
+  enabled: true
+```
+
+> **A NetworkPolicy is enforced by the CNI plugin, not by Kubernetes.** Calico, Cilium and Antrea enforce it. Plain Flannel and a few managed offerings accept the object and ignore it, leaving the peer port open with nothing to show for it. Check what your cluster runs before relying on this.
+
+When legitimate peers live in another namespace, add them rather than turning the policy off:
+
+```yaml
+networkPolicy:
+  peerIngressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: carbone-staging
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: carbone-ee
+```
+
+If you know which workloads call the API, you can narrow the HTTP port too. Leave it empty to keep it open to everything, which is the default:
+
+```yaml
+networkPolicy:
+  httpIngressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+```
+
+Verify the policy is in place after an install:
+
+```bash
+kubectl get networkpolicy -n carbone
+kubectl describe networkpolicy carbone-ee-production -n carbone
 ```
 
 ## Upgrade

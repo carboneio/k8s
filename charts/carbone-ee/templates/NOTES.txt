@@ -13,8 +13,8 @@ Image     : {{ .Values.image.repository }}:full-{{ .Values.image.tag | default .
 {{- else }}
   Replicas      : {{ .Values.replicaCount }}
 {{- end }}
-{{- if and .Values.applicationConfiguration.templateManagement (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
-  Peer sync     : enabled (WebSocket on port 5001)
+{{- if include "carbone-ee.peerEnabled" . }}
+  Peer sync     : enabled (WebSocket on port {{ include "carbone-ee.peerPort" . }})
 {{- end }}
 
 ━━━ Storage ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -60,6 +60,17 @@ Image     : {{ .Values.image.repository }}:full-{{ .Values.image.tag | default .
 {{- end }}
 {{- if not .Values.applicationConfiguration.license }}
   [!] No license key — running in community mode (limited features)
+{{- end }}
+{{- if include "carbone-ee.peerEnabled" . }}
+{{- if .Values.networkPolicy.enabled }}
+  Peer port      : restricted by NetworkPolicy to the pods of this release
+                   (only enforced if your CNI supports NetworkPolicies)
+{{- else }}
+  [!] networkPolicy.enabled is false and the peer port {{ include "carbone-ee.peerPort" . }} is open.
+      That port authenticates no one: any pod able to reach it can join the replication
+      mesh, read your template metadata and receive rendering jobs. Re-enable the policy,
+      or restrict the port with your own network controls.
+{{- end }}
 {{- end }}
 
 ━━━ Studio ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

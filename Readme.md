@@ -1,4 +1,5 @@
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/carbone)](https://artifacthub.io/packages/search?repo=carbone)
+[![OCI registry](https://img.shields.io/badge/OCI-ghcr.io%2Fcarboneio%2Fcharts-blue?logo=helm)](https://github.com/orgs/carboneio/packages/container/package/charts%2Fcarbone-ee)
 
 This repository contains the official Helm chart for deploying [Carbone Enterprise Edition](https://carbone.io) on Kubernetes.
 

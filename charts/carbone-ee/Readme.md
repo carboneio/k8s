@@ -42,7 +42,7 @@ The recommended approach is to maintain a `values.yaml` file and pass it with `-
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.tag` | Carbone image tag | `5.11.0` |
+| `image.tag` | Carbone image tag (defaults to the chart `appVersion`) | `""` |
 | `image.pullPolicy` | Image pull policy | `Always` |
 | `replicaCount` | Number of replicas | `4` |
 | `applicationConfiguration.license` | Carbone EE license key | `""` |

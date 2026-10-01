@@ -6,6 +6,7 @@ This repository contains the official Helm chart for deploying [Carbone Enterpri
 - [Quick start](#quick-start)
 - [Using a values file](#using-a-values-file)
 - [Cloud provider examples](#cloud-provider-examples)
+- [Verify the chart signature](#verify-the-chart-signature)
 - [Upgrade](#upgrade)
 - [Uninstall](#uninstall)
 
@@ -35,6 +36,12 @@ Add the Carbone Helm repository:
 ```bash
 helm repo add carbone https://bin.carbone.io/helm/
 helm repo update
+```
+
+The chart is also published as an OCI artifact on GitHub Container Registry, which requires no `helm repo add`:
+
+```bash
+helm upgrade --install carbone-ee oci://ghcr.io/carboneio/charts/carbone-ee --version <version> ...
 ```
 
 Install Carbone with S3 storage:
@@ -112,6 +119,33 @@ Ready-to-use values files are available for common environments. Copy the releva
 | Google Kubernetes Engine | GCS (S3-compatible) | [values-gcp.yaml](values-gcp.yaml) |
 | OVH Managed Kubernetes | OVH Object Storage | [values-ovh.yaml](values-ovh.yaml) |
 | Scaleway Kapsule | Scaleway Object Storage | [values-scaleway.yaml](values-scaleway.yaml) |
+
+## Verify the chart signature
+
+Charts are signed with GPG starting from version 1.0.7. Import the Carbone public key into a keyring (Helm requires the legacy `.gpg` keyring format):
+
+```bash
+curl -fsSL https://bin.carbone.io/helm/pubkey.asc | gpg --import
+gpg --export > ~/.gnupg/pubring.gpg
+```
+
+Then add `--verify` to any `pull`, `install` or `upgrade` command:
+
+```bash
+helm upgrade --install carbone-ee carbone/carbone-ee \
+  --verify --keyring ~/.gnupg/pubring.gpg \
+  -n carbone -f values.yaml
+```
+
+Helm aborts if the chart was modified or was not signed by Carbone.
+
+Charts pulled from `oci://ghcr.io/carboneio/charts` are also signed with [cosign](https://docs.sigstore.dev/) (keyless, from the GitHub Actions publish workflow):
+
+```bash
+cosign verify ghcr.io/carboneio/charts/carbone-ee:<version> \
+  --certificate-identity-regexp '^https://github.com/carboneio/k8s/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
 ## Upgrade
 

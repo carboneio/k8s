@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write   # push chart to GHCR
+      id-token: write   # cosign keyless signing
+    env:
+      OCI_REGISTRY: ghcr.io
+      OCI_REPOSITORY: ghcr.io/carboneio/charts
 
     steps:
       - name: Checkout
@@ -42,9 +47,57 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Package chart
+      - name: Import signing key
         if: steps.check.outputs.exists == 'false'
-        run: helm package charts/carbone-ee --destination ./dist
+        env:
+          HELM_SIGNING_KEY: ${{ secrets.HELM_SIGNING_KEY }}
+          HELM_SIGNING_PASSPHRASE: ${{ secrets.HELM_SIGNING_PASSPHRASE }}
+        run: |
+          echo "$HELM_SIGNING_KEY" | gpg --batch --import
+          # Helm only reads the legacy keyring format
+          printf '%s' "$HELM_SIGNING_PASSPHRASE" > "$RUNNER_TEMP/passphrase"
+          gpg --batch --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/passphrase" \
+            --export-secret-keys > "$RUNNER_TEMP/secring.gpg"
+          gpg --export > "$RUNNER_TEMP/pubring.gpg"
+          gpg --armor --export > ./pubkey.asc
+
+      - name: Package and sign chart
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          helm package charts/carbone-ee --destination ./dist \
+            --sign \
+            --key "${{ vars.HELM_SIGNING_KEY_NAME }}" \
+            --keyring "$RUNNER_TEMP/secring.gpg" \
+            --passphrase-file "$RUNNER_TEMP/passphrase"
+          rm -f "$RUNNER_TEMP/passphrase" "$RUNNER_TEMP/secring.gpg"
+
+      - name: Verify signature
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          helm verify "./dist/${{ steps.chart.outputs.filename }}" \
+            --keyring "$RUNNER_TEMP/pubring.gpg"
+
+      - name: Push chart to GHCR
+        id: oci
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login "$OCI_REGISTRY" \
+            --username "${{ github.actor }}" --password-stdin
+          # The .prov file next to the archive is pushed as a provenance layer
+          helm push "./dist/${{ steps.chart.outputs.filename }}" "oci://$OCI_REPOSITORY" 2>&1 | tee push.log
+          DIGEST=$(grep '^Digest:' push.log | awk '{print $2}')
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Set up cosign
+        if: steps.check.outputs.exists == 'false'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign OCI chart with cosign
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | cosign login "$OCI_REGISTRY" \
+            --username "${{ github.actor }}" --password-stdin
+          cosign sign --yes "$OCI_REPOSITORY/carbone-ee@${{ steps.oci.outputs.digest }}"
 
       - name: Download existing index from CDN
         if: steps.check.outputs.exists == 'false'
@@ -73,6 +126,19 @@ jobs:
             --data-binary @"./dist/${{ steps.chart.outputs.filename }}" \
             "https://storage.bunnycdn.com/${{ secrets.BUNNY_STORAGE_ZONE }}/helm/${{ steps.chart.outputs.filename }}"
 
+      - name: Upload provenance file and public key to Bunny CDN
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          upload() {
+            curl -f -X PUT \
+              -H "AccessKey: ${{ secrets.BUNNY_STORAGE_API_KEY }}" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$1" \
+              "https://storage.bunnycdn.com/${{ secrets.BUNNY_STORAGE_ZONE }}/helm/$2"
+          }
+          upload "./dist/${{ steps.chart.outputs.filename }}.prov" "${{ steps.chart.outputs.filename }}.prov"
+          upload ./pubkey.asc pubkey.asc
+
       - name: Upload index to Bunny CDN
         if: steps.check.outputs.exists == 'false'
         run: |
@@ -96,3 +162,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Chart: https://bin.carbone.io/helm/${{ steps.chart.outputs.filename }}" >> $GITHUB_STEP_SUMMARY
           echo "- Index: https://bin.carbone.io/helm/index.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "- Provenance: https://bin.carbone.io/helm/${{ steps.chart.outputs.filename }}.prov" >> $GITHUB_STEP_SUMMARY
+          echo "- OCI: oci://${OCI_REPOSITORY}/carbone-ee:${{ steps.chart.outputs.version }} (${{ steps.oci.outputs.digest }})" >> $GITHUB_STEP_SUMMARY

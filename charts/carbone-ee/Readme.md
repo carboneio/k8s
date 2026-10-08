@@ -59,6 +59,8 @@ The recommended approach is to maintain a `values.yaml` file and pass it with `-
 | `applicationConfiguration.maxInputSize` | Max request body size in bytes | `62914560` |
 | `applicationConfiguration.templateManagement` | Enable template CRUD API | `true` |
 | `applicationConfiguration.jobBalancer` | Distribute rendering jobs evenly across instances (requires `templateManagement: true`, Carbone ≥ 5.9.0) | `false` |
+| `sharedMemory.enabled` | Mount a tmpfs on `/dev/shm` for Chrome, instead of the 64Mi a container gets by default | `true` |
+| `sharedMemory.size` | Cap of that tmpfs, charged to `resources.limits.memory`. Empty means uncapped | `1Gi` |
 
 ### Autoscaling
 
@@ -123,6 +125,30 @@ persistentStorage:
     templateFolder: templates
     rendersFolder: renders
 ```
+
+## HTML rendering and shared memory
+
+Carbone renders HTML through Chrome, which allocates its renderer shared memory in `/dev/shm`. A
+container gets 64Mi there, and Chrome exhausts it on large documents: the tab dies mid-render and
+the request comes back as a protocol or "target closed" error. The chart therefore mounts a tmpfs
+of its own on that path, enabled by default:
+
+```yaml
+sharedMemory:
+  enabled: true
+  size: 1Gi
+```
+
+`size` is a cap, not a reservation — an idle pod consumes nothing. But a tmpfs lives in RAM and
+whatever Chrome writes in it counts against `resources.limits.memory`, so a pod that fills the
+whole gigabyte has that much less left for the application. Raise the memory limit alongside
+`size` if you increase it, and leave `size` set: an uncapped tmpfs is bounded by the node's memory
+rather than the pod's.
+
+Unrelated Chrome log lines are expected in a container and harmless: `Failed to adjust OOM score of
+renderer` comes from the dropped `CAP_SYS_RESOURCE` capability, and
+`Failed to send GpuControl.CreateCommandBuffer` from the absence of a GPU, after which Chrome falls
+back to software rendering. Neither affects the output.
 
 ## Multi-instance and high availability
 

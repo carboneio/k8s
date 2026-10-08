@@ -67,6 +67,19 @@ resources:
     memory: 4096Mi
     ephemeral-storage: "10Gi"
 
+# Chrome, used by the HTML rendering engine, allocates its renderer shared memory in /dev/shm.
+# A container gets 64Mi there by default, which Chrome exhausts on large documents: the tab dies
+# mid-render and the request fails with a protocol or "target closed" error. Mounting a tmpfs of
+# our own removes that ceiling.
+#
+# [!] A `medium: Memory` emptyDir is a tmpfs: whatever Chrome writes in it is charged to the
+#     container's memory limit above, on top of the application itself. `size` is only a cap, so
+#     nothing is reserved up front, but raise `resources.limits.memory` alongside it if you set a
+#     large value, otherwise a heavy render pushes the pod into an OOM kill.
+sharedMemory:
+  enabled: true
+  size: 1Gi
+
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:

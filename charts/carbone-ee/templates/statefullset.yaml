@@ -160,8 +160,13 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.persistentStorage.persistentVolume.enabled }}
+          {{- if or .Values.persistentStorage.persistentVolume.enabled .Values.sharedMemory.enabled }}
           volumeMounts:
+          {{- if .Values.sharedMemory.enabled }}
+          - mountPath: /dev/shm
+            name: dshm
+          {{- end }}
+          {{- if .Values.persistentStorage.persistentVolume.enabled }}
           {{- if .Values.persistentStorage.persistentVolume.templateFolder }}
           - mountPath: /app/template
             name: carbone-storage
@@ -173,14 +178,28 @@ spec:
             subPath: {{ .Values.persistentStorage.persistentVolume.rendersFolder | quote }}
           {{- end }}
           {{- end }}
+          {{- end }}
 
       # Volume optionnal mount
-      {{- if .Values.persistentStorage.persistentVolume.enabled }}
+      {{- if or .Values.persistentStorage.persistentVolume.enabled .Values.sharedMemory.enabled }}
       volumes:
+        {{- if .Values.sharedMemory.enabled }}
+        # Chrome's renderer shared memory. The 64Mi a container gets by default is not enough for
+        # large HTML documents, and a tmpfs of our own lifts that limit. It is charged to the
+        # container memory limit, see the sharedMemory section of values.yaml.
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            {{- with .Values.sharedMemory.size }}
+            sizeLimit: {{ . }}
+            {{- end }}
+        {{- end }}
+        {{- if .Values.persistentStorage.persistentVolume.enabled }}
         {{- if .Values.persistentStorage.persistentVolume.persistentVolumeClaimName }}
         - name: carbone-storage
           persistentVolumeClaim:
             claimName: {{ .Values.persistentStorage.persistentVolume.persistentVolumeClaimName | quote }}
+        {{- end }}
         {{- end }}
       {{- end }}
       

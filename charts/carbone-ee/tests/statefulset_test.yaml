@@ -197,3 +197,75 @@ tests:
           path: spec.template.spec.containers[0].env
           content:
             name: CARBONE_JOB_BALANCER
+
+  - it: should mount a tmpfs on /dev/shm by default
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            mountPath: /dev/shm
+            name: dshm
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 1Gi
+
+  - it: should follow sharedMemory.size when it is overridden
+    set:
+      sharedMemory.size: 512Mi
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: dshm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 512Mi
+
+  - it: should leave the tmpfs uncapped when sharedMemory.size is empty
+    set:
+      sharedMemory.size: null
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: dshm
+            emptyDir:
+              medium: Memory
+
+  - it: should not mount /dev/shm when sharedMemory is disabled
+    set:
+      sharedMemory.enabled: false
+    asserts:
+      - isNull:
+          path: spec.template.spec.volumes
+      - isNull:
+          path: spec.template.spec.containers[0].volumeMounts
+
+  - it: should keep both the tmpfs and the persistent volume when they are enabled together
+    set:
+      sharedMemory.enabled: true
+      persistentStorage.persistentVolume.enabled: true
+      persistentStorage.persistentVolume.persistentVolumeClaimName: my-pvc
+      persistentStorage.persistentVolume.templateFolder: templates
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            mountPath: /dev/shm
+            name: dshm
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            mountPath: /app/template
+            name: carbone-storage
+            subPath: templates
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: carbone-storage
+            persistentVolumeClaim:
+              claimName: my-pvc

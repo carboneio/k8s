@@ -1,1 +1,17 @@
 artifacthub-repo.yml
+
+# Local deployment files. The values-<provider>.yaml at the root are versioned examples;
+# values.yaml is the working copy you pass with -f and it holds real licenses, S3 keys and
+# storage secrets, so it must never be committed. The leading slash matters: it keeps the
+# pattern on the root file and leaves charts/carbone-ee/values.yaml, which is part of the
+# chart, tracked.
+/values.yaml
+/volumes.yaml
+
+# Editor and OS noise
+.vscode/
+.idea/
+.DS_Store
+
+# Helm build output
+*.tgz
